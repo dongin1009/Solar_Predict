@@ -1,0 +1,169 @@
+# ================================================================================ #
+# =========================== Goolge Colab File Upload =========================== #
+# ================================================================================ #
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+from google.colab import output
+# !cp 파일1 파일2 # 파일1을 파일2로 복사 붙여넣기
+!cp "/content/drive/MyDrive/Colab Notebooks/동서발전 태양광 발전량 예측 경진대회/data.zip" "data.zip"
+# data.zip을 현재 디렉터리에 압축해제
+!unzip "data.zip"
+output.clear()
+
+import os
+
+# path
+path = "./"
+dangjin_fcst_data_path = path + "dangjin_fcst_data.csv"
+dangjin_obs_data_path = path + "dangjin_obs_data.csv"
+energy_data_path = path + "energy.csv"
+ulsan_fcst_data_path = path + "ulsan_fcst_data.csv"
+ulsan_obs_data_path = path + "ulsan_obs_data.csv"
+
+# import library 
+import numpy as np
+import pandas as pd
+import scipy as sp
+import tensorflow as tf
+#import tensorflow_addons as tfa
+import matplotlib.pyplot as plt
+import os
+import glob
+
+# file convert to pandas data
+dangjin_fcst_data = pd.read_csv(dangjin_fcst_data_path)
+dangjin_obs_data = pd.read_csv(dangjin_obs_data_path)
+energy_data = pd.read_csv(energy_data_path)
+ulsan_fcst_data = pd.read_csv(ulsan_fcst_data_path)
+ulsan_obs_data = pd.read_csv(ulsan_obs_data_path)
+
+
+'''
+로컬 드라이브에서 진행하고 싶을 경우, 위에 작성된 코드는 생략
+'''
+# ======================================================================== #
+# =========================== From Local Drive =========================== #
+# ======================================================================== #
+
+import os
+import numpy as np
+import pandas as pd
+import scipy as sp
+import tensorflow as tf
+#import tensorflow_addons as tfa
+import matplotlib.pyplot as plt
+import os
+import glob
+
+# path
+path = "./data/"
+dangjin_fcst_data_path = path + "dangjin_fcst_data.csv"
+dangjin_obs_data_path = path + "dangjin_obs_data.csv"
+energy_data_path = path + "energy.csv"
+ulsan_fcst_data_path = path + "ulsan_fcst_data.csv"
+ulsan_obs_data_path = path + "ulsan_obs_data.csv"
+site_info_path = path + "site_info.csv"
+
+# file convert to pandas data
+dangjin_fcst_data = pd.read_csv(dangjin_fcst_data_path)
+dangjin_obs_data = pd.read_csv(dangjin_obs_data_path)
+energy_data = pd.read_csv(energy_data_path)
+ulsan_fcst_data = pd.read_csv(ulsan_fcst_data_path)
+ulsan_obs_data = pd.read_csv(ulsan_obs_data_path)
+site_info = pd.read_csv(site_info_path)
+
+# ======================================================================== #
+# =========================== 이하는 공통 사항  =========================== #
+# ======================================================================== #
+
+'''
+- 일자, 시각 등은 'time' 이라는 변수명으로 통일
+- 그 외의 변수명은 '변수명_파일명' 으로 지정(ulsan, dangjin)
+- 가정하길 ulsan 데이터와 dangjin 데이터는 서로 무관하다. 
+- 이후에 NAN 데이터는 dropna()를 이용해 모두 소거 예정
+- 하나의 데이터셋을 구축한 뒤, 상관관게 분석 + ADF test 등을 진행
+'''
+
+dangjin_fcst_data.rename(
+    columns = {
+        "Forecast time":"time", 
+        "forecast":"forecast_fcst", 
+        "Temperature":"temp_fcst",
+        "Humidity":"humid_fcst",
+        "WindSpeed":"ws_fcst",
+        "WindDirection":"wd_fcst",
+        "Cloud":"cloud_fcst"
+        }, inplace = True)
+
+dangjin_obs_data.rename(
+    columns = {
+        "일시":"time",
+        "기온(°C)":"temp_obs",
+        "풍속(m/s)":"ws_obs",
+        "풍향(16방위)":"wd_obs",
+        "습도(%)":"humid_obs",
+        "전운량(10분위)":"cloud_obs"
+    }, inplace = True)
+
+ulsan_fcst_data.rename(
+    columns = {
+        "Forecast time":"time", 
+        "forecast":"forecast_fcst", 
+        "Temperature":"temp_fcst",
+        "Humidity":"humid_fcst",
+        "WindSpeed":"ws_fcst",
+        "WindDirection":"wd_fcst",
+        "Cloud":"cloud_fcst"
+    }, inplace = True)
+
+ulsan_obs_data.rename(
+    columns = {
+        "일시":"time",
+        "기온(°C)":"temp_obs",
+        "풍속(m/s)":"ws_obs",
+        "풍향(16방위)":"wd_obs",
+        "습도(%)":"humid_obs",
+        "전운량(10분위)":"cloud_obs"
+    }, inplace = True)
+
+dangjin_obs_data = dangjin_obs_data.drop(columns = ["지점", "지점명"])
+ulsan_obs_data = ulsan_obs_data.drop(columns = ["지점","지점명"])
+
+
+# 전 데이터 NAN 처리
+
+dangjin_fcst_data = dangjin_fcst_data.dropna()
+dangjin_obs_data = dangjin_obs_data.dropna()
+energy_data = energy_data.dropna()
+ulsan_fcst_data = ulsan_fcst_data.dropna()
+ulsan_obs_data = ulsan_obs_data.dropna()
+
+
+# fcst_data 데이터 전처리
+# time + forecast -> time으로 전환, 이후 중복되는 값은 평균 처리 
+
+dangjin_fcst_data["time_fcst"] = pd.to_datetime(dangjin_fcst_data["time"].copy()) + dangjin_fcst_data["forecast_fcst"].copy().astype("timedelta64[h]")
+dangjin_fcst_data = danjin_fcst_data.groupby("time_fcst", as_index = False).mean()
+dangjin_fcst_data = dangjin_fcst_data.drop(columns = ["forecast_fcst"])
+
+ulsan_fcst_data["time_fcst"] = pd.to_datetime(ulsan_fcst_data["time"].copy()) + ulsan_fcst_data["forecast_fcst"].copy().astype("timedelta64[h]")
+ulsan_fcst_data = ulsan_fcst_data.groupby("time", as_index = False).mean()
+ulsan_fcst_data = ulsan_fcst_data.drop(columns = ["forecast_fcst"])
+
+ulsan_fcst_data.rename(columns = {"time_fcst":"time"}, inplace = True)
+dangjin_fcst_data.rename(columns = {"time_fcst":"time"}, inplace = True)
+
+ulsan_fcst_data = ulsan_fcst_data.astype({"time":"object"})
+dangjin_fcst_data = dangjin_fcst_data.astype({"time":"object"})
+
+# total dataset 구성
+
+from functools import reduce
+
+list_dangjin = [dangjin_fcst_data, dangjin_obs_data, energy_data[["time","dangjin_floating","dangjin_warehouse","dangjin"]].copy()]
+list_ulsan = [ulsan_fcst_data, ulsan_obs_data, energy_data[["time","ulsan"]].copy()]
+
+dangjin_data = reduce(lambda  left,right: pd.merge(left, right, on=['time'], how='inner'), list_dangjin)
+ulsan_data = reduce(lambda  left,right: pd.merge(left, right, on=['time'], how='inner'), list_ulsan)
