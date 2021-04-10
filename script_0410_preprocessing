@@ -140,7 +140,6 @@ energy_data = energy_data.dropna()
 ulsan_fcst_data = ulsan_fcst_data.dropna()
 ulsan_obs_data = ulsan_obs_data.dropna()
 
-
 # fcst_data 데이터 전처리
 # time + forecast -> time으로 전환, 이후 중복되는 값은 평균 처리 
 
@@ -158,6 +157,56 @@ dangjin_fcst_data.rename(columns = {"time_fcst":"time"}, inplace = True)
 ulsan_fcst_data = ulsan_fcst_data.astype({"time":"object"})
 dangjin_fcst_data = dangjin_fcst_data.astype({"time":"object"})
 
+dangjin_obs_data["time"] = pd.to_datetime(dangjin_obs_data["time"].copy(), format='%Y-%m-%d %H:%M:%S')
+dangjin_obs_data = dangjin_obs_data.astype({"time":"object"})
+
+ulsan_obs_data["time"] = pd.to_datetime(ulsan_obs_data["time"].copy(), format='%Y-%m-%d %H:%M:%S')
+ulsan_obs_data = ulsan_obs_data.astype({"time":"object"})
+
+# fcst_data['time'] time interval: 3hour -> 1hour로 축소 필요
+# Lagrangian Interpolation
+
+def interpolation(df):
+
+    df_copy = df.copy()
+    var_names = df.columns
+
+    total_s = list()
+    time_list = list()
+    
+    for var_name in var_names:
+        s = list()
+        for i in range(df_copy.shape[0] - 1):
+            timedeltas = df_copy["time"][i+1] - df_copy["time"][i]
+            n_intervals = int(timedeltas / np.timedelta64(1, "h"))
+
+            for j in range(n_intervals):
+        
+                if var_name == "time":
+                    time_stamps = df_copy["time"][i] + timedeltas * j / n_intervals
+                    time_list.append(time_stamps)
+                else:
+                    add_ = df_copy[var_name][i] + (df_copy[var_name][i+1] - df_copy[var_name][i]) / n_intervals * j
+                    s.append(add_)
+
+        if var_name == "time":
+            time_list = np.array(time_list).reshape(-1,1)
+            total_s.append(time_list)
+        else:
+            s = np.array(s).reshape(-1,1)
+            total_s.append(s)
+
+    total_s = np.array(total_s).T.reshape(-1, len(var_names))
+    df_converted = pd.DataFrame(total_s, columns = var_names)
+
+    return df_converted
+
+dangjin_fcst_data = interpolation(dangjin_fcst_data.copy())
+ulsan_fcst_data = interpolation(ulsan_fcst_data.copy())
+
+ulsan_fcst_data = ulsan_fcst_data.astype({"time":"object"})
+dangjin_fcst_data = dangjin_fcst_data.astype({"time":"object"})
+
 # total dataset 구성
 
 from functools import reduce
@@ -167,3 +216,13 @@ list_ulsan = [ulsan_fcst_data, ulsan_obs_data, energy_data[["time","ulsan"]].cop
 
 dangjin_data = reduce(lambda  left,right: pd.merge(left, right, on=['time'], how='inner'), list_dangjin)
 ulsan_data = reduce(lambda  left,right: pd.merge(left, right, on=['time'], how='inner'), list_ulsan)
+
+
+
+'''
+fcst의 time과 obs의 time이 일치하지 않는다.
+
+'''
+
+# supervised learning을 위한 preprocessing
+# 현재 진행중
