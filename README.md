@@ -3,6 +3,5 @@
 - [DIYA](https://blog.diyaml.com/) 4기
 
 ### Co-working Guideline
-- For a MR to be completed, **at least 1 confirm** from the maintainers is required.
-- If one of the maintainers **vetoes** the MR, it cannot be merged.
+- For a MR to be completed, **at least 1 confirm** from the other maintainers is required.
 - To prevent merge conflict, do not directly change other maintainer's code.
