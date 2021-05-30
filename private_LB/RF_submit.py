@@ -32,7 +32,7 @@ def to_submission(path, predict_date, predicted):
 
 BASE_DATE = "20210525"
 BASE_TIME = "2000"
-SHIFT = 20
+SHIFT = 20  # 1 in real private LB case
 X_COLS = [
     "Temperature",
     "Humidity",

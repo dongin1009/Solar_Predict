@@ -33,7 +33,7 @@ class API:
         base_date: str, format:'YYYYMMDD'(e.g. '20210522'). 예보 발표일자. API로는 최근 1일간의 자료만을 불러올 수 있다는 점 유의.
         base_time: str, format: 'HHMM'(e.g. '2000' for 20시). 예보 발표시각. 0200, 0500, 0800, 1100, 1400, 1700, 2000, 2300 중 하나여야 함.
         location: str, 'dangjin' or 'ulsan'.
-        key: 기상청 API 일반 인증키(decoding)`
+        key: 기상청 API 일반 인증키(decoding)
         """
         self.base_date = base_date
         self.base_time = base_time
@@ -55,9 +55,10 @@ class API:
         self.predict_date_tmrw_json = date_ctrl(base_date, 2, "json")
         self.predict_date_tmrw_pandas = date_ctrl(base_date, 2, "pandas")
 
-    def get_data(self, preprocess=True):
+    def get_data(self, preprocess=True, itp_method="linear"):
         """
-        preprocess = True by default. Set preprocess = False to get raw data.
+        preprocess: bool, True by default. Set preprocess = False to get raw data.
+        itp_method: str, interpolation method supported by pandas.DataFrame.interpolate. Commonly used are 'linear' and 'quadratic'.
         """
         # pd DataFrame
         fcst_df = pd.DataFrame()
@@ -89,14 +90,14 @@ class API:
                     row_idx += 3
 
         if preprocess:
-            fcst_df = self._preprocess(fcst_df)
+            fcst_df = self._preprocess(fcst_df, itp_method)
 
         return fcst_df
 
     # for internal use
-    def _preprocess(self, data):
+    def _preprocess(self, data, itp_method):
         # interpolate
-        data = data.interpolate(method="linear")
+        data = data.interpolate(method=itp_method)
 
         # convert 24:00:00 to tomorrow 00:00:00
         data.loc[24, "time"] = f"{self.predict_date_tmrw_pandas} 00:00:00"
@@ -106,6 +107,10 @@ class API:
 
         # add seasonality
         data = self._add_seasonality(data)
+
+        # preprocess 'WindSpeed' and 'WindDirection' to 'Wind_X' and 'Wind_Y'
+        data = data.join(self._preprocess_wind(data))
+        data.drop(columns=["WindSpeed", "WindDirection"], inplace=True)
 
         # exclude first row
         data = data.drop(index=0)
@@ -155,3 +160,21 @@ class API:
         )
 
         return new_df
+
+    def _preprocess_wind(self, data):
+        """
+        data: pd.DataFrame which contains the columns 'WindSpeed' and 'WindDirection'
+        """
+
+        # degree to radian
+        wind_direction_radian = data["WindDirection"] * np.pi / 180
+
+        # polar coordinate to cartesian coordinate
+        wind_x = data["WindSpeed"] * np.cos(wind_direction_radian)
+        wind_y = data["WindDirection"] * np.sin(wind_direction_radian)
+
+        # name pd.series
+        wind_x.name = "Wind_X"
+        wind_y.name = "Wind_Y"
+
+        return wind_x, wind_y
