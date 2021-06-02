@@ -4,6 +4,7 @@
 
 import pickle
 import pandas as pd
+from glob import glob
 
 from privateLB import API, date_ctrl
 
@@ -27,7 +28,7 @@ def predict(location, base_date, base_time):
 
 
 def to_submission(path, predict_date, predicted):
-    submission = pd.read_csv("./private_LB/test_sample_submission.csv")
+    submission = pd.read_csv(READ_PATH)
     # Doesn't have to be 'ulsan'. Can be any arbitrary column.
     submission.loc[submission["time"].str.contains(predict_date), "ulsan"] = predicted
     submission.to_csv(path, index=False)
@@ -45,8 +46,12 @@ def tweak_after_prediction(array, N):
 
 
 def main(base_date, base_time):
+    # path
+    READ_PATH = sorted(glob("witt_modeling/privateLB_submissions/*.csv"))[
+        -1
+    ]  # the most recent file in submission folder
+    WRITE_PATH = f"./witt_modeling/privateLB_submissions/rf_{base_date}-{base_time}_submission.csv"
     # path to save submission file
-    PATH = f"./witt_modeling/privateLB_submissions/rf_{base_date}-{base_time}_submission.csv"
 
     # sum dangjin prediction and ulsan prediction
     dj = predict("dangjin", base_date, base_time)
@@ -57,7 +62,7 @@ def main(base_date, base_time):
     total = tweak_after_prediction(total, N)
     print(total)
 
-    to_submission(PATH, date_ctrl(base_date, SHIFT, "pandas"), total)
+    to_submission(WRITE_PATH, date_ctrl(base_date, SHIFT, "pandas"), total)
 
 
 # constants
@@ -74,4 +79,4 @@ X_COLS = [
 N = 20
 
 if __name__ == "__main__":
-    main("20210531", "2000")
+    main("20210602", "2000")
