@@ -2,81 +2,94 @@
 # for private LB
 # should be run in /Solar_Predict
 
+from datetime import date
 import pickle
 import pandas as pd
 from glob import glob
+
+from pandas.core.indexes import base
 
 from privateLB import API, date_ctrl
 
 KEY = "sNfoTDclWrvFGpIEFDEXvj+EaCjLrOILF7IYehdRCcYBxnMP0zna40R1UmY6qfWBG0gJ16c3T8ManHwvhACk7w=="
 
 
-def predict(location, base_date, base_time):
-    # get data
-    data = API(base_date, base_time, location, KEY).get_data(
-        preprocess=True, itp_method="quadratic"
-    )
+class RfPredict:
+    def __init__(self, base_date, base_time):
+        # params
+        self.base_date = base_date
+        self.base_time = base_time
 
-    # load model
-    with open(f"witt_modeling/rf_models/{location}_model.pkl", "rb") as f:
-        model = pickle.load(f)
+        # constants
+        self.X_COLS = [
+            "Temperature",
+            "Humidity",
+            "Cloud",
+            "Day_cos",
+            "Day_sin",
+            "Year_cos",
+            "Year_sin",
+        ]
+        self.N = 20
 
-    # predict
-    x = data.loc[:, X_COLS]
-    predicted = model.predict(x)
-    return predicted
+        # execute main
+        self.main()
 
+    def _vanilla_predict(self, location, gap):
+        # get data
+        data = API(self.base_date, self.base_time, location, KEY).get_data(
+            gap=gap, preprocess=True, itp_method="quadratic"
+        )
 
-def to_submission(path, predict_date, predicted):
-    submission = pd.read_csv(READ_PATH)
-    # Doesn't have to be 'ulsan'. Can be any arbitrary column.
-    submission.loc[submission["time"].str.contains(predict_date), "ulsan"] = predicted
-    submission.to_csv(path, index=False)
+        # load model
+        with open(f"witt_modeling/rf_models/{location}_model.pkl", "rb") as f:
+            model = pickle.load(f)
 
+        # predict
+        x = data.loc[:, self.X_COLS]
+        predicted = model.predict(x)
+        return predicted
 
-def tweak_after_prediction(array, N):
-    # replace by 320 if value < 320
-    # add N if value > 320
-    for i in range(len(array)):
-        if array[i] < 320:
-            array[i] = 320
-        else:
-            array[i] += N
-    return array
+    def _tweak_after_prediction(self, array):
+        # replace by 320 if value < 320
+        # add N if value > 320
+        for i in range(len(array)):
+            if array[i] < 320:
+                array[i] = 320
+            else:
+                array[i] += self.N
+        return array
 
+    def _predict(self, gap, file):
+        # sum dangjin prediction and ulsan prediction
+        dj = self._vanilla_predict("dangjin", gap)
+        uls = self._vanilla_predict("ulsan", gap)
+        total = dj + uls
 
-def main(base_date, base_time):
-    # path
-    READ_PATH = sorted(glob("witt_modeling/privateLB_submissions/*.csv"))[
-        -1
-    ]  # the most recent file in submission folder
-    WRITE_PATH = f"./witt_modeling/privateLB_submissions/rf_{base_date}-{base_time}_submission.csv"
-    # path to save submission file
+        # add value to compensate underestimation
+        total = self._tweak_after_prediction(total)
+        print(total)
 
-    # sum dangjin prediction and ulsan prediction
-    dj = predict("dangjin", base_date, base_time)
-    uls = predict("ulsan", base_date, base_time)
-    total = dj + uls
+        # file
+        predict_date = date_ctrl(self.base_date, gap, "pandas")
+        file.loc[file["time"].str.contains(predict_date), "ulsan"] = total
 
-    # add value to compensate underestimation
-    total = tweak_after_prediction(total, N)
-    print(total)
+        return file
 
-    to_submission(WRITE_PATH, date_ctrl(base_date, SHIFT, "pandas"), total)
+    def main(self):
+        # the most recent file in submission folder
+        READ_PATH = sorted(glob("witt_modeling/privateLB_submissions/*.csv"))[-1]
+        # path to save submission file
+        WRITE_PATH = f"./witt_modeling/privateLB_submissions/rf_{self.base_date}-{self.base_time}_submission.csv"
 
+        # gap = 1
+        submission = pd.read_csv(READ_PATH, encoding="euc-kr")
+        submission = self._predict(1, submission)
 
-# constants
-SHIFT = 1
-X_COLS = [
-    "Temperature",
-    "Humidity",
-    "Cloud",
-    "Day_cos",
-    "Day_sin",
-    "Year_cos",
-    "Year_sin",
-]
-N = 20
+        # gap = 2
+        submission = self._predict(2, submission)
+        submission.to_csv(WRITE_PATH, index=False)
+
 
 if __name__ == "__main__":
-    main("20210602", "2000")
+    RfPredict("20210602", "2000")

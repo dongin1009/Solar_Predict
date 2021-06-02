@@ -48,18 +48,19 @@ class API:
         else:
             raise Exception("Location should be either 'dangjin' or 'ulsan'")
 
-        # 예측 대상 일자 (base_date + 1day)
-        self.predict_date_json = date_ctrl(base_date, 1, "json")
-        self.predict_date_pandas = date_ctrl(base_date, 1, "pandas")
-
-        self.predict_date_tmrw_json = date_ctrl(base_date, 2, "json")
-        self.predict_date_tmrw_pandas = date_ctrl(base_date, 2, "pandas")
-
-    def get_data(self, preprocess=True, itp_method="linear"):
+    def get_data(self, gap=1, preprocess=True, itp_method="linear"):
         """
+        gap: int; 몇 일 뒤를 예측할 것인지. Default = 1
         preprocess: bool, True by default. Set preprocess = False to get raw data.
         itp_method: str, interpolation method supported by pandas.DataFrame.interpolate. Commonly used are 'linear' and 'quadratic'.
         """
+        # 예측 대상 일자 (base_date + 1day)
+        self.predict_date_json = date_ctrl(self.base_date, gap, "json")
+        self.predict_date_pandas = date_ctrl(self.base_date, gap, "pandas")
+
+        self.predict_date_tmrw_json = date_ctrl(self.base_date, gap + 1, "json")
+        self.predict_date_tmrw_pandas = date_ctrl(self.base_date, gap + 1, "pandas")
+
         # pd DataFrame
         fcst_df = pd.DataFrame()
         fcst_df["time"] = [
@@ -125,7 +126,7 @@ class API:
                 urllib.parse.quote_plus("serviceKey"): self.key,
                 urllib.parse.quote_plus(
                     "numOfRows"
-                ): "150",  # 그냥 넉넉하게 설정; 데이터가 뒤에서 잘렸다면 이 값을 높여야 함.
+                ): "300",  # 그냥 넉넉하게 설정; 데이터가 뒤에서 잘렸다면 이 값을 높여야 함.
                 urllib.parse.quote_plus("dataType"): "JSON",
                 urllib.parse.quote_plus("base_date"): self.base_date,
                 urllib.parse.quote_plus("base_time"): self.base_time,
