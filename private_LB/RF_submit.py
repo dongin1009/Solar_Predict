@@ -11,8 +11,6 @@ from pandas.core.indexes import base
 
 from privateLB import API, date_ctrl
 
-KEY = "sNfoTDclWrvFGpIEFDEXvj+EaCjLrOILF7IYehdRCcYBxnMP0zna40R1UmY6qfWBG0gJ16c3T8ManHwvhACk7w=="
-
 
 class RfPredict:
     def __init__(self, base_date, base_time):
@@ -31,13 +29,14 @@ class RfPredict:
             "Year_sin",
         ]
         self.N = 20
+        self.KEY = "sNfoTDclWrvFGpIEFDEXvj+EaCjLrOILF7IYehdRCcYBxnMP0zna40R1UmY6qfWBG0gJ16c3T8ManHwvhACk7w=="
 
         # execute main
         self.main()
 
     def _vanilla_predict(self, location, gap):
         # get data
-        data = API(self.base_date, self.base_time, location, KEY).get_data(
+        data = API(self.base_date, self.base_time, location, self.KEY).get_data(
             gap=gap, preprocess=True, itp_method="quadratic"
         )
 
