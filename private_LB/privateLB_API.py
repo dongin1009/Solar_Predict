@@ -146,19 +146,10 @@ class API:
     def _add_seasonality(self, df):
         new_df = df.copy()
 
-        new_df["Day_cos"] = new_df["time"].apply(
-            lambda x: np.cos(x.hour * (2 * np.pi) / 24)
-        )
-        new_df["Day_sin"] = new_df["time"].apply(
-            lambda x: np.sin(x.hour * (2 * np.pi) / 24)
-        )
-
-        new_df["Year_cos"] = new_df["time"].apply(
-            lambda x: np.cos(self._day_of_year(x) * (2 * np.pi) / 365)
-        )
-        new_df["Year_sin"] = new_df["time"].apply(
-            lambda x: np.sin(self._day_of_year(x) * (2 * np.pi) / 365)
-        )
+        new_df["Day_cos"] = new_df["time"].apply(lambda x: np.cos(x.hour * (2 * np.pi) / 24))
+        new_df["Day_sin"] = new_df["time"].apply(lambda x: np.sin(x.hour * (2 * np.pi) / 24))
+        new_df["Year_cos"] = new_df["time"].apply(lambda x: np.cos(self._day_of_year(x) * (2 * np.pi) / 365))
+        new_df["Year_sin"] = new_df["time"].apply(lambda x: np.sin(self._day_of_year(x) * (2 * np.pi) / 365))
 
         return new_df
 
