@@ -17,9 +17,13 @@ class RfPredict:
         self.read_path = sorted(glob("./submissions/*.csv"))[-1]  # most recent file
 
         # constants
-        self.X_COLS = ["Temperature", "Humidity", "Cloud", "Day_cos", "Day_sin", "Year_cos", "Year_sin"]
+        # single column to store the sum of all 4 target values. THIS VALUE SHOULD BE CONSISTENT THROUGH ALL CSVS.
+        self.COLUMN_TO_STORE_SUM = 'ulsan'
         self.N = 20
         self.KEY = "sNfoTDclWrvFGpIEFDEXvj+EaCjLrOILF7IYehdRCcYBxnMP0zna40R1UmY6qfWBG0gJ16c3T8ManHwvhACk7w=="
+        self.X_COLS = ["Temperature", "Humidity", "Cloud",
+                       "Day_cos", "Day_sin", "Year_cos", "Year_sin"]
+        
 
     def _vanilla_predict(self, location, gap):
         # get data
@@ -57,7 +61,7 @@ class RfPredict:
 
         # file
         predict_date = date_ctrl(self.base_date, gap, "pandas")
-        file.loc[file["time"].str.contains(predict_date), "ulsan"] = total
+        file.loc[file["time"].str.contains(predict_date), self.COLUMN_TO_STORE_SUM] = total
 
         return file
 
@@ -79,7 +83,7 @@ class LgbmPredict(RfPredict):
         self.X_COLS = ["Day_cos", "Day_sin", "Year_cos", "Year_sin",
                        "Temperature", "Humidity", "Wind_X", "Wind_Y", "Cloud"]
 
-        self.MODEL_NAME = 'lgbm'
+        self.MODEL_NAME_WITH_EXTENSION = 'lgbm.pkl'
 
     def _vanilla_predict(self, location, gap):
         # get data
@@ -87,10 +91,10 @@ class LgbmPredict(RfPredict):
             gap=gap, preprocess=True, itp_method="linear")
 
         # load model
-        model = joblib.load(f"../ZINZINBIN/trained_model/{location}_{self.MODEL_NAME}.pkl")
+        model = joblib.load(f"../ZINZINBIN/trained_model/{location}_{self.MODEL_NAME_WITH_EXTENSION}")
 
         # predict
-        x = data.loc[:, self.X_COLS]
+        x = data.loc[:, self.X_COLS].values # pd.DataFrame -> np.ndarrray
         predicted = model.predict(x)
         return predicted
 
@@ -102,7 +106,7 @@ class LgbmPredict(RfPredict):
 
         # file
         predict_date = date_ctrl(self.base_date, gap, "pandas")
-        file.loc[file["time"].str.contains(predict_date), "ulsan"] = total
+        file.loc[file["time"].str.contains(predict_date), self.COLUMN_TO_STORE_SUM] = total
 
         return file
 
@@ -113,7 +117,7 @@ class LgbmPredict(RfPredict):
 class XgbPredict(LgbmPredict):
     def __init__(self, base_date, base_time):
         super().__init__(base_date, base_time)
-        self.MODEL_NAME = 'xgb'
+        self.MODEL_NAME_WITH_EXTENSION = 'xgb.json'
 
     def _vanilla_predict(self, location, gap):
         return super()._vanilla_predict(location, gap)
@@ -125,3 +129,5 @@ class XgbPredict(LgbmPredict):
         return super().get_submission()
 
     
+if __name__ == '__main__':
+    print(XgbPredict('20210607','2000').get_submission().tail(48)) # to see the predictions(two days == 48 rows)
