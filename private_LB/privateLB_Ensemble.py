@@ -9,7 +9,7 @@ import pandas as pd
 from privateLB_models import RfPredict, LgbmPredict, XgbPredict
 
 # date of prediction
-base_date = "20210607"
+base_date = "20210608"
 base_time = "2000"
 
 # predictions from the models

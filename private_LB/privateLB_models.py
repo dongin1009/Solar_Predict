@@ -14,7 +14,7 @@ class RfPredict:
         # params
         self.base_date = base_date
         self.base_time = base_time
-        self.read_path = sorted(glob("./submissions/*.csv"))[-1]  # most recent file
+        self.read_path = 'submissions/sample_submission.csv'
 
         # constants
         # single column to store the sum of all 4 target values. THIS VALUE SHOULD BE CONSISTENT THROUGH ALL CSVS.
