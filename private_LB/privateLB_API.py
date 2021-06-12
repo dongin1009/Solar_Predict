@@ -1,10 +1,12 @@
-## code for private LB
+# code for private LB
 
 import pandas as pd
 import numpy as np
 import urllib
 import urllib.request
 import json
+
+from pandas.core.indexing import convert_to_index_sliceable
 
 
 def date_ctrl(date, shift, format):
@@ -38,11 +40,12 @@ class API:
         self.base_date = base_date
         self.base_time = base_time
         self.key = key
+        self.location = location
 
-        if location == "dangjin":
+        if self.location == "dangjin":
             self.nx = "53"
             self.ny = "114"
-        elif location == "ulsan":
+        elif self.location == "ulsan":
             self.nx = "102"
             self.ny = "83"
         else:
@@ -58,8 +61,10 @@ class API:
         self.predict_date_json = date_ctrl(self.base_date, gap, "json")
         self.predict_date_pandas = date_ctrl(self.base_date, gap, "pandas")
 
-        self.predict_date_tmrw_json = date_ctrl(self.base_date, gap + 1, "json")
-        self.predict_date_tmrw_pandas = date_ctrl(self.base_date, gap + 1, "pandas")
+        self.predict_date_tmrw_json = date_ctrl(
+            self.base_date, gap + 1, "json")
+        self.predict_date_tmrw_pandas = date_ctrl(
+            self.base_date, gap + 1, "pandas")
 
         # pd DataFrame
         fcst_df = pd.DataFrame()
@@ -70,7 +75,7 @@ class API:
         response = self._api()
         row_idx = 0
 
-        for i, data in enumerate(response["response"]["body"]["items"]["item"]):
+        for data in response["response"]["body"]["items"]["item"]:
             if (data["fcstDate"] == self.predict_date_json) or (
                 (data["fcstDate"] == self.predict_date_tmrw_json)
                 and (data["fcstTime"] == "0000")
@@ -79,13 +84,16 @@ class API:
                 if data["category"] == "REH":
                     fcst_df.loc[row_idx, "Humidity"] = float(data["fcstValue"])
                 elif data["category"] == "T3H":
-                    fcst_df.loc[row_idx, "Temperature"] = float(data["fcstValue"])
+                    fcst_df.loc[row_idx, "Temperature"] = float(
+                        data["fcstValue"])
                 elif data["category"] == "SKY":
                     fcst_df.loc[row_idx, "Cloud"] = float(data["fcstValue"])
                 elif data["category"] == "VEC":
-                    fcst_df.loc[row_idx, "WindDirection"] = float(data["fcstValue"])
+                    fcst_df.loc[row_idx, "WindDirection"] = float(
+                        data["fcstValue"])
                 elif data["category"] == "WSD":
-                    fcst_df.loc[row_idx, "WindSpeed"] = float(data["fcstValue"])
+                    fcst_df.loc[row_idx, "WindSpeed"] = float(
+                        data["fcstValue"])
 
                     # because WSD always comes at last
                     row_idx += 3
@@ -97,6 +105,9 @@ class API:
 
     # for internal use
     def _preprocess(self, data, itp_method):
+        # cloud preprocess to match the unit in obs data
+        data = self._preprocess_cloud(data)
+
         # interpolate
         data = data.interpolate(method=itp_method)
 
@@ -146,10 +157,14 @@ class API:
     def _add_seasonality(self, df):
         new_df = df.copy()
 
-        new_df["Day_cos"] = new_df["time"].apply(lambda x: np.cos(x.hour * (2 * np.pi) / 24))
-        new_df["Day_sin"] = new_df["time"].apply(lambda x: np.sin(x.hour * (2 * np.pi) / 24))
-        new_df["Year_cos"] = new_df["time"].apply(lambda x: np.cos(self._day_of_year(x) * (2 * np.pi) / 365))
-        new_df["Year_sin"] = new_df["time"].apply(lambda x: np.sin(self._day_of_year(x) * (2 * np.pi) / 365))
+        new_df["Day_cos"] = new_df["time"].apply(
+            lambda x: np.cos(x.hour * (2 * np.pi) / 24))
+        new_df["Day_sin"] = new_df["time"].apply(
+            lambda x: np.sin(x.hour * (2 * np.pi) / 24))
+        new_df["Year_cos"] = new_df["time"].apply(
+            lambda x: np.cos(self._day_of_year(x) * (2 * np.pi) / 365))
+        new_df["Year_sin"] = new_df["time"].apply(
+            lambda x: np.sin(self._day_of_year(x) * (2 * np.pi) / 365))
 
         return new_df
 
@@ -170,3 +185,21 @@ class API:
         wind_y.name = "Wind_Y"
 
         return wind_x, wind_y
+
+    def _preprocess_cloud(self, data):
+        # get dictionary to convert from cloud_fcst to cloud_obs
+        if self.location == 'dangjin':
+            convert_cloud = {1.0: 2.7635372029606544,
+                             2.0: 3.8820678513731823,
+                             3.0: 6.18494516450648,
+                             4.0: 7.961345381526105}
+        elif self.location == 'ulsan':
+            convert_cloud = {2.0: 3.5910064239828694,
+                             1.0: 1.721059516023545,
+                             3.0: 6.145117540687161,
+                             4.0: 8.638197424892704}
+
+        new_data = data.copy()
+        new_data['Cloud'].replace(convert_cloud, inplace=True)
+
+        return new_data

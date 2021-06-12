@@ -9,7 +9,7 @@ import pandas as pd
 from privateLB_models import RfPredict, LgbmPredict, XgbPredict
 
 # date of prediction
-base_date = "20210608"
+base_date = "20210610"
 base_time = "2000"
 
 # predictions from the models
@@ -26,6 +26,6 @@ submission_ensemble["ulsan"] = submission_ensemble["ulsan"].add(submission_xgb["
 submission_ensemble["ulsan"] = submission_ensemble["ulsan"] / 3 
  
 # write CSV
-print(submission_ensemble.tail(48)) # show the predictions for two days(=48 rows)
+# show the predictions for two days(=48 rows)
 submission_ensemble.to_csv(f"./submissions/{base_date}_{base_time}.csv", index = False)
 # be careful when modifying the write_path. Unintended file in "submissions" directory might cause code to misbehave.
